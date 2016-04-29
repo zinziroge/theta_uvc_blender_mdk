@@ -8,7 +8,7 @@
 // ycapture:
 //   http://yzwlab.net/ycapture/
 //   http://izmiz.hateblo.jp/entry/2015/01/12/220133
-#define VERSION "0.1.0"
+#define VERSION "0.2.0"
 
 #include "stdafx.h"
 #include <windows.h>
@@ -41,7 +41,7 @@ GLFWwindow* window;
 #include <ycapture_lib.h>
 
 
-int init(const int win_width, const int win_height)
+int init(const int win_width, const int win_height, const int preview_sw)
 {
 	// GLFWの初期化
 	if (!glfwInit())
@@ -54,7 +54,8 @@ int init(const int win_width, const int win_height)
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	//glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
+	if(preview_sw == 0)
+		glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
 
 	// ウィンドウを開き、OpenGLコンテキストを作る
 	window = glfwCreateWindow(win_width, win_height, "theta uvc blender mdk", NULL, NULL);
@@ -114,19 +115,20 @@ void usage(char* argv[])
 {
 	fprintf(stdout, "theta_uvc_blender_mdk ver %s\n", VERSION);
 	fprintf(stdout, "Usage:\n");
-	fprintf(stdout, "theta_uvc_blender_mdk.exe <device_id> <out_cam_width> <out_cam_height>\n");
+	fprintf(stdout, "theta_uvc_blender_mdk.exe <device_id> <out_cam_width> <out_cam_height> <preview_sw>\n");
 
 	exit(1);
 }
 
 int main(int argc, char* argv[])
 {
-	if (argc != 4)
+	if (argc != 5)
 		usage(argv);
 
 	int device_id = atoi(argv[1]);
 	int win_width = atoi(argv[2]);
 	int win_height = atoi(argv[3]);
+	int preview_sw = atoi(argv[4]);
 	double prev_x = 0.0, prev_y = 0.0;
 	int mouse_state = 0;
 
@@ -154,7 +156,7 @@ int main(int argc, char* argv[])
 	// プログラム終了時の処理を登録する
 	atexit(glfwTerminate);
 
-	init((int)win_width, (int)win_height);
+	init((int)win_width, (int)win_height, preview_sw);
 
 	// テクスチャを準備する
 	GLuint image;
@@ -271,7 +273,7 @@ int main(int argc, char* argv[])
 			}
 			double x, y;
 			glfwGetCursorPos(window, &x, &y);
-			printf("%lf,%lf\n", x, y);
+			//printf("%lf,%lf\n", x, y);
 			rot_vec.at<float>(2) = rot_vec.at<float>(2) + (x - prev_x) / win_width * 2.0 * M_PI * 2.0;
 			rot_vec.at<float>(0) = rot_vec.at<float>(0) + (y - prev_y) / win_height * M_PI * 2.0;
 			prev_x = x;
