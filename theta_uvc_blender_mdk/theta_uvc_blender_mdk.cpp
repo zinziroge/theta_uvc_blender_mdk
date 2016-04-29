@@ -1,9 +1,13 @@
 // theta_uvc_blender_mdk.cpp : コンソール アプリケーションのエントリ ポイントを定義します。
 //
-// http://suzuichibolgpg.blog.fc2.com/blog-entry-109.html
-// http://qiita.com/doxas/items/f3f8bf868f12851ea143
-// http://marina.sys.wakayama-u.ac.jp/~tokoi/oglarticles.html
-
+// Thanks to
+// OpenGL, GLSL:
+//   http://marina.sys.wakayama-u.ac.jp/~tokoi/oglarticles.html
+//   http://suzuichibolgpg.blog.fc2.com/blog-entry-109.html
+//   http://qiita.com/doxas/items/f3f8bf868f12851ea143
+// ycapture:
+//   http://yzwlab.net/ycapture/
+//   http://izmiz.hateblo.jp/entry/2015/01/12/220133
 #define VERSION "0.1.0"
 
 #include "stdafx.h"
@@ -33,7 +37,7 @@ GLFWwindow* window;
 
 // ycapture
 #include <CaptureSender.h>
-#include <ycapture.h>
+#include "my_ycapture.h"
 #include <ycapture_lib.h>
 
 
@@ -123,6 +127,8 @@ int main(int argc, char* argv[])
 	int device_id = atoi(argv[1]);
 	int win_width = atoi(argv[2]);
 	int win_height = atoi(argv[3]);
+	double prev_x = 0.0, prev_y = 0.0;
+	int mouse_state = 0;
 
 	// OpenCV によるビデオキャプチャを初期化する
 	cv::VideoCapture camera(device_id);
@@ -143,6 +149,7 @@ int main(int argc, char* argv[])
 	int i_frame = 0;
 
 	cv::Mat out_cam_frame = cv::Mat(cv::Size((int)win_width, (int)win_height), CV_8UC3);
+	cv::Mat rot_vec = (cv::Mat_<float>(3, 1) << 0.0, 0.0, 0.0);
 
 	// プログラム終了時の処理を登録する
 	atexit(glfwTerminate);
@@ -157,7 +164,7 @@ int main(int argc, char* argv[])
 	glfwSwapInterval(1);
 
 	// ダークブルーの背景
-	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+	//glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
 
 	void* dataBuffer = NULL;
 	dataBuffer = (GLubyte*)malloc((int)win_width * (int)win_height * 3);
@@ -194,35 +201,42 @@ int main(int argc, char* argv[])
 	//glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
 
 
-	GLint dfe_alpha_ID = glGetUniformLocation(programID, "DFE_ALPHA_BLENDING_R_RATIO");
-	GLint cam_r_ID = glGetUniformLocation(programID, "CAM_R");
-	GLint cam1_cpx_ID = glGetUniformLocation(programID, "CAM1_CPX");
-	GLint cam1_cpy_ID = glGetUniformLocation(programID, "CAM1_CPY");
-	GLint cam2_cpx_ID = glGetUniformLocation(programID, "CAM2_CPX");
-	GLint cam2_cpy_ID = glGetUniformLocation(programID, "CAM2_CPY");
-	glUniform1f(dfe_alpha_ID, 0.950);
-	glUniform1f(cam_r_ID, 283.0);
-	glUniform1f(cam1_cpx_ID, 319.0);
-	glUniform1f(cam1_cpy_ID, 319.0);
-	glUniform1f(cam2_cpx_ID, 959.0);
-	glUniform1f(cam2_cpy_ID, 319.0);
-	//glutMouseFunc(mouse);
-
+	//GLint dfe_alpha_ID = glGetUniformLocation(programID, "DFE_ALPHA_BLENDING_R_RATIO");
+	//GLint cam_r_ID = glGetUniformLocation(programID, "CAM_R");
+	//GLint cam1_cpx_ID = glGetUniformLocation(programID, "CAM1_CPX");
+	//GLint cam1_cpy_ID = glGetUniformLocation(programID, "CAM1_CPY");
+	//GLint cam2_cpx_ID = glGetUniformLocation(programID, "CAM2_CPX");
+	//GLint cam2_cpy_ID = glGetUniformLocation(programID, "CAM2_CPY");
+	GLint width_ID = glGetUniformLocation(programID, "uni_width");
+	GLint height_ID = glGetUniformLocation(programID, "uni_height");
+	GLint rot_vec_ID = glGetUniformLocation(programID, "uni_rot_vec");
+	//glUniform1f(dfe_alpha_ID, 0.950);
+	//glUniform1f(cam_r_ID, 283.0);
+	//glUniform1f(cam1_cpx_ID, 319.0);
+	//glUniform1f(cam1_cpy_ID, 319.0);
+	//glUniform1f(cam2_cpx_ID, 959.0);
+	//glUniform1f(cam2_cpy_ID, 319.0);
+	glUniform1f(width_ID, win_width);
+	glUniform1f(height_ID, win_height);
+	glUniform3f(rot_vec_ID, rot_vec.at<float>(0), rot_vec.at<float>(1), rot_vec.at<float>(2));
 
 	// スクリーンをクリア
 	//glClear(GL_COLOR_BUFFER_BIT);
+	
 	do{
+
 		if (camera.grab())
 		{
 			// キャプチャ映像から画像を切り出す
 			cv::Mat frame;
 			camera.retrieve(frame, 3);
-			//cv::flip(frame, frame, 0);
+			//cv::flip(frame, frame, 1);
 
 			transport_texture(image, (GLubyte*)dataBuffer, win_width, win_height, frame);
 
 			GLubyte* p = static_cast<GLubyte*>(dataBuffer);
 			out_cam_frame.data = p;
+			cv::flip(out_cam_frame, out_cam_frame, 1); // 水平反転
 
 			HRESULT hr = sender.Send(i_frame * avgTimePF, (int)win_width, (int)win_height, out_cam_frame.data);
 
@@ -250,11 +264,24 @@ int main(int argc, char* argv[])
 		glfwPollEvents();
 		//glfwWaitEvents();
 		// mouse event
-		if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) != GLFW_RELEASE) {
+		if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS) {
+			if (mouse_state == 0) {
+				mouse_state = 1;
+				glfwGetCursorPos(window, &prev_x, &prev_y);
+			}
 			double x, y;
 			glfwGetCursorPos(window, &x, &y);
 			printf("%lf,%lf\n", x, y);
+			rot_vec.at<float>(2) = rot_vec.at<float>(2) + (x - prev_x) / win_width * 2.0 * M_PI * 2.0;
+			rot_vec.at<float>(0) = rot_vec.at<float>(0) + (y - prev_y) / win_height * M_PI * 2.0;
+			prev_x = x;
+			prev_y = y;
+		}else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_RELEASE) {
+			mouse_state = 0;
 		}
+
+
+		glUniform3f(rot_vec_ID, rot_vec.at<float>(0), rot_vec.at<float>(1), rot_vec.at<float>(2));
 	} // ESCキーが押されたか、ウィンドウが閉じられたかを確認する
 	while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS &&
 	glfwWindowShouldClose(window) == 0);
